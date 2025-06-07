@@ -10,9 +10,24 @@ class PreviewProvider {
         this.currentMode = 'horizontal';
         this.disposables = [];
         this.textParser = new textParser_1.TextParser();
-        vscode.workspace.onDidChangeTextDocument(this.onDocumentChange, this, this.disposables);
-        vscode.window.onDidChangeActiveTextEditor(this.onActiveEditorChange, this, this.disposables);
-        vscode.workspace.onDidChangeConfiguration(this.onConfigurationChange, this, this.disposables);
+        const documentChangeListener = vscode.workspace.onDidChangeTextDocument((event) => {
+            this.onDocumentChange(event);
+        });
+        const editorChangeListener = vscode.window.onDidChangeActiveTextEditor(() => {
+            this.onActiveEditorChange();
+        });
+        const configChangeListener = vscode.workspace.onDidChangeConfiguration((event) => {
+            this.onConfigurationChange(event);
+        });
+        this.disposables.push(documentChangeListener, editorChangeListener, configChangeListener);
+    }
+    dispose() {
+        this.disposables.forEach(d => d.dispose());
+        this.disposables = [];
+        if (this.panel) {
+            this.panel.dispose();
+            this.panel = undefined;
+        }
     }
     showPreview(mode) {
         this.currentMode = mode;
@@ -38,65 +53,222 @@ class PreviewProvider {
         }
     }
     onDocumentChange(event) {
-        if (this.panel && this.isRelevantDocument(event.document)) {
-            this.updatePreview();
-        }
+        setImmediate(() => {
+            try {
+                if (!event || !event.document) {
+                    return;
+                }
+                if (!this.panel || this.disposables.length === 0) {
+                    return;
+                }
+                if (this.isRelevantDocument(event.document)) {
+                    this.updatePreview();
+                }
+            }
+            catch (error) {
+                console.error('Error in onDocumentChange:', error);
+            }
+        });
     }
     onActiveEditorChange() {
-        if (this.panel) {
-            this.updatePreview();
-        }
+        setImmediate(() => {
+            try {
+                if (!this.panel || this.disposables.length === 0) {
+                    return;
+                }
+                this.updatePreview();
+            }
+            catch (error) {
+                console.error('Error in onActiveEditorChange:', error);
+            }
+        });
     }
     onConfigurationChange(event) {
-        if (event.affectsConfiguration('novelPreview') && this.panel) {
-            this.updatePreview();
-        }
+        setImmediate(() => {
+            try {
+                if (!this.panel || this.disposables.length === 0) {
+                    return;
+                }
+                if (event && event.affectsConfiguration('novelPreview')) {
+                    this.updatePreview();
+                }
+            }
+            catch (error) {
+                console.error('Error in onConfigurationChange:', error);
+            }
+        });
     }
     isRelevantDocument(document) {
         return document.languageId === 'markdown' || document.fileName.endsWith('.txt');
     }
     updatePreview() {
-        if (!this.panel)
-            return;
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || !this.isRelevantDocument(editor.document)) {
-            this.panel.webview.html = this.getWebviewContent('プレビューするファイルを選択してください');
-            return;
+        try {
+            if (!this.panel || this.panel.webview === undefined) {
+                console.log('Panel or webview is undefined, skipping update');
+                return;
+            }
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !this.isRelevantDocument(editor.document)) {
+                const fallbackContent = this.getWebviewContent('プレビューするファイルを選択してください');
+                if (fallbackContent) {
+                    this.panel.webview.html = fallbackContent;
+                }
+                return;
+            }
+            const text = editor.document.getText();
+            if (this.textParser) {
+                this.textParser.updateSettings();
+            }
+            const parsedHtml = this.textParser ? this.textParser.parse(text, this.currentMode) : text;
+            let settings;
+            try {
+                settings = settingsManager_1.SettingsManager.getSettings();
+            }
+            catch (settingsError) {
+                console.error('Error getting settings:', settingsError);
+                settings = {
+                    gridSize: 20,
+                    cellSize: 24,
+                    lineSpacing: 4,
+                    fontFamily: '游明朝, YuMincho, Hiragino Mincho ProN, serif',
+                    showGrid: true,
+                    colors: {
+                        red: '#ff0000',
+                        blue: '#0000ff',
+                        green: '#008000',
+                        yellow: '#ffff00'
+                    }
+                };
+            }
+            const webviewContent = this.getWebviewContent(parsedHtml);
+            if (webviewContent && this.panel && this.panel.webview) {
+                this.panel.webview.html = webviewContent;
+                setTimeout(() => {
+                    try {
+                        if (this.panel && this.panel.webview) {
+                            this.panel.webview.postMessage({
+                                command: 'update',
+                                html: parsedHtml,
+                                mode: this.currentMode
+                            });
+                            this.panel.webview.postMessage({
+                                command: 'settings',
+                                settings: settings
+                            });
+                        }
+                    }
+                    catch (messageError) {
+                        console.error('Error sending webview messages:', messageError);
+                    }
+                }, 100);
+            }
         }
-        const text = editor.document.getText();
-        const parsedHtml = this.textParser.parse(text, this.currentMode);
-        const settings = settingsManager_1.SettingsManager.getSettings();
-        this.panel.webview.html = this.getWebviewContent(parsedHtml);
-        this.panel.webview.postMessage({
-            command: 'update',
-            html: parsedHtml,
-            mode: this.currentMode
-        });
-        this.panel.webview.postMessage({
-            command: 'settings',
-            settings: settings
-        });
+        catch (error) {
+            console.error('Error in updatePreview:', error);
+            if (this.panel && this.panel.webview) {
+                try {
+                    this.panel.webview.html = '<html><body><h1>Preview Error</h1><p>An error occurred while updating the preview.</p></body></html>';
+                }
+                catch (htmlError) {
+                    console.error('Error setting fallback HTML:', htmlError);
+                }
+            }
+        }
     }
     getWebviewContent(content) {
-        const webviewUri = this.panel.webview.asWebviewUri;
-        const stylesUri = webviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'src', 'webview', 'styles.css'));
-        const scriptUri = webviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'src', 'webview', 'preview.js'));
+        try {
+            if (!this.panel || !this.panel.webview) {
+                console.log('Panel or webview is undefined in getWebviewContent');
+                return '';
+            }
+            const webviewUri = this.panel.webview.asWebviewUri;
+            if (!webviewUri) {
+                console.error('webviewUri is undefined');
+                return this.getFallbackContent(content);
+            }
+            let stylesUri, scriptUri;
+            try {
+                stylesUri = webviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'src', 'webview', 'styles.css'));
+                scriptUri = webviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'src', 'webview', 'preview.js'));
+            }
+            catch (uriError) {
+                console.error('Error creating webview URIs:', uriError);
+                return this.getFallbackContent(content);
+            }
+            const cspSource = this.panel.webview.cspSource;
+            if (!cspSource) {
+                console.error('CSP source is undefined');
+                return this.getFallbackContent(content);
+            }
+            return `<!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource};">
+                <title>Novel Preview</title>
+                <style>
+                    body { font-family: '游明朝', YuMincho, 'Hiragino Mincho ProN', serif; padding: 20px; }
+                    .horizontal-mode { writing-mode: horizontal-tb; }
+                    .vertical-mode { writing-mode: vertical-rl; text-orientation: upright; }
+                    .manuscript-paper { line-height: 1.8; }
+                    ruby rt { font-size: 0.5em; }
+                    .text-color-red { color: #ff0000; }
+                    .text-color-blue { color: #0000ff; }
+                    .text-color-green { color: #008000; }
+                    .text-color-yellow { color: #ffff00; }
+                    .bg-color-red { background-color: #ff0000; }
+                    .bg-color-blue { background-color: #0000ff; }
+                    .bg-color-green { background-color: #008000; }
+                    .bg-color-yellow { background-color: #ffff00; }
+                </style>
+            </head>
+            <body>
+                <div id="container" class="${this.currentMode}-mode">
+                    <div id="preview-content" class="manuscript-paper">
+                        ${content || 'プレビューコンテンツがありません'}
+                    </div>
+                </div>
+                <script>
+                    const vscode = acquireVsCodeApi();
+                    window.addEventListener('message', event => {
+                        const message = event.data;
+                        switch (message.command) {
+                            case 'update':
+                                const container = document.getElementById('container');
+                                const content = document.getElementById('preview-content');
+                                if (container && content) {
+                                    container.className = message.mode + '-mode';
+                                    content.innerHTML = message.html || 'コンテンツがありません';
+                                }
+                                break;
+                        }
+                    });
+                </script>
+            </body>
+            </html>`;
+        }
+        catch (error) {
+            console.error('Error in getWebviewContent:', error);
+            return this.getFallbackContent(content);
+        }
+    }
+    getFallbackContent(content) {
         return `<!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${this.panel.webview.cspSource} 'unsafe-inline'; script-src ${this.panel.webview.cspSource};">
             <title>Novel Preview</title>
-            <link rel="stylesheet" href="${stylesUri}">
+            <style>
+                body { font-family: serif; padding: 20px; }
+                .horizontal-mode { writing-mode: horizontal-tb; }
+                .vertical-mode { writing-mode: vertical-rl; text-orientation: upright; }
+            </style>
         </head>
         <body>
-            <div id="container" class="${this.currentMode}-mode">
-                <div id="preview-content" class="manuscript-paper">
-                    ${content}
-                </div>
+            <div class="${this.currentMode}-mode">
+                <div>${content || 'プレビューエラー'}</div>
             </div>
-            <script src="${scriptUri}"></script>
         </body>
         </html>`;
     }

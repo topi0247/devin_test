@@ -8,7 +8,7 @@ function activate(context) {
     const horizontalCommand = vscode.commands.registerCommand('novelPreview.showHorizontalPreview', () => previewProvider.showPreview('horizontal'));
     const verticalCommand = vscode.commands.registerCommand('novelPreview.showVerticalPreview', () => previewProvider.showPreview('vertical'));
     const toggleCommand = vscode.commands.registerCommand('novelPreview.togglePreviewMode', () => previewProvider.toggleMode());
-    context.subscriptions.push(horizontalCommand, verticalCommand, toggleCommand);
+    context.subscriptions.push(horizontalCommand, verticalCommand, toggleCommand, previewProvider);
 }
 exports.activate = activate;
 function deactivate() { }

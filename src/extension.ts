@@ -19,7 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
         () => previewProvider.toggleMode()
     );
     
-    context.subscriptions.push(horizontalCommand, verticalCommand, toggleCommand);
+    context.subscriptions.push(horizontalCommand, verticalCommand, toggleCommand, previewProvider);
 }
 
 export function deactivate() {}
