@@ -21,7 +21,7 @@ export class TextParser {
         processed = this.parseRuby(processed);
         processed = this.parseColors(processed);
         processed = this.parseBackgroundColors(processed);
-        processed = this.convertLineBreaks(processed);
+        processed = this.convertToGridCells(processed, mode);
         
         return processed;
     }
@@ -58,7 +58,75 @@ export class TextParser {
         return result;
     }
     
-    private convertLineBreaks(text: string): string {
-        return text.replace(/\n/g, '<br>');
+    private convertToGridCells(text: string, mode: 'horizontal' | 'vertical'): string {
+        const lines = text.split('\n');
+        const gridSize = this.settings.get('gridSize', 20);
+        
+        let gridHtml = `<div class="grid-container ${mode}-grid">`;
+        
+        for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+            const line = lines[lineIndex];
+            
+            if (line.trim() === '') {
+                gridHtml += `<div class="grid-line empty-line"></div>`;
+                continue;
+            }
+            
+            gridHtml += `<div class="grid-line">`;
+            
+            const characters = this.splitIntoCharacters(line);
+            
+            for (let charIndex = 0; charIndex < Math.min(characters.length, gridSize); charIndex++) {
+                const char = characters[charIndex];
+                if (char === ' ') {
+                    gridHtml += `<div class="grid-cell empty-cell"></div>`;
+                } else {
+                    gridHtml += `<div class="grid-cell">${char}</div>`;
+                }
+            }
+            
+            for (let i = characters.length; i < gridSize; i++) {
+                gridHtml += `<div class="grid-cell empty-cell"></div>`;
+            }
+            
+            gridHtml += `</div>`;
+        }
+        
+        gridHtml += `</div>`;
+        return gridHtml;
+    }
+    
+    private splitIntoCharacters(text: string): string[] {
+        const characters: string[] = [];
+        let i = 0;
+        
+        while (i < text.length) {
+            if (text[i] === '<') {
+                const tagEnd = text.indexOf('>', i);
+                if (tagEnd !== -1) {
+                    const tag = text.substring(i, tagEnd + 1);
+                    if (tag.startsWith('<ruby>')) {
+                        const rubyEnd = text.indexOf('</ruby>', tagEnd);
+                        if (rubyEnd !== -1) {
+                            characters.push(text.substring(i, rubyEnd + 7));
+                            i = rubyEnd + 7;
+                            continue;
+                        }
+                    } else if (tag.startsWith('<span')) {
+                        const spanEnd = text.indexOf('</span>', tagEnd);
+                        if (spanEnd !== -1) {
+                            characters.push(text.substring(i, spanEnd + 7));
+                            i = spanEnd + 7;
+                            continue;
+                        }
+                    }
+                }
+            }
+            
+            characters.push(text[i]);
+            i++;
+        }
+        
+        return characters;
     }
 }
