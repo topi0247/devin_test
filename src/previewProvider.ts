@@ -244,17 +244,78 @@ export class PreviewProvider implements vscode.Disposable {
                     }
                     
                     .manuscript-paper { 
-                        line-height: 1.8; 
                         padding: 10px;
                         min-height: 400px;
                     }
                     
-                    .manuscript-paper.show-grid {
-                        background-image: 
-                            linear-gradient(to right, #ddd 1px, transparent 1px),
-                            linear-gradient(to bottom, #ddd 1px, transparent 1px);
-                        background-size: var(--cell-size) var(--cell-size);
-                        background-position: 0 0;
+                    .grid-container {
+                        display: flex;
+                        gap: var(--line-spacing);
+                    }
+                    
+                    .horizontal-grid {
+                        flex-direction: column;
+                    }
+                    
+                    .vertical-grid {
+                        flex-direction: row;
+                        writing-mode: vertical-rl;
+                        text-orientation: upright;
+                    }
+                    
+                    .grid-line {
+                        display: flex;
+                        gap: 0;
+                    }
+                    
+                    .horizontal-grid .grid-line {
+                        flex-direction: row;
+                        margin-bottom: var(--line-spacing);
+                    }
+                    
+                    .vertical-grid .grid-line {
+                        flex-direction: column;
+                        margin-right: var(--line-spacing);
+                    }
+                    
+                    .grid-cell {
+                        width: var(--cell-size);
+                        height: var(--cell-size);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-family: var(--font-family);
+                        font-size: calc(var(--cell-size) * 0.7);
+                        position: relative;
+                        box-sizing: border-box;
+                        writing-mode: horizontal-tb;
+                        text-orientation: mixed;
+                    }
+                    
+                    .vertical-grid .grid-cell {
+                        writing-mode: vertical-rl;
+                        text-orientation: upright;
+                    }
+                    
+                    .manuscript-paper.show-grid .grid-cell {
+                        border: 1px solid #ddd;
+                    }
+                    
+                    .empty-cell {
+                        color: transparent;
+                    }
+                    
+                    .empty-line {
+                        height: var(--cell-size);
+                    }
+                    
+                    ruby {
+                        ruby-align: center;
+                    }
+                    
+                    ruby rt {
+                        font-size: 0.5em;
+                        line-height: 1;
                     }
                     
                     ruby rt { font-size: 0.5em; }
