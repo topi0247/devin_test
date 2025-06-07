@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { TextParser } from './textParser';
 import { SettingsManager } from './settingsManager';
 
-export class PreviewProvider {
+export class PreviewProvider implements vscode.Disposable {
     private panel: vscode.WebviewPanel | undefined;
     private currentMode: 'horizontal' | 'vertical' = 'horizontal';
     private disposables: vscode.Disposable[] = [];
@@ -11,9 +11,20 @@ export class PreviewProvider {
     constructor(private context: vscode.ExtensionContext) {
         this.textParser = new TextParser();
         
-        vscode.workspace.onDidChangeTextDocument(this.onDocumentChange, this, this.disposables);
-        vscode.window.onDidChangeActiveTextEditor(this.onActiveEditorChange, this, this.disposables);
-        vscode.workspace.onDidChangeConfiguration(this.onConfigurationChange, this, this.disposables);
+        this.disposables.push(
+            vscode.workspace.onDidChangeTextDocument(this.onDocumentChange, this),
+            vscode.window.onDidChangeActiveTextEditor(this.onActiveEditorChange, this),
+            vscode.workspace.onDidChangeConfiguration(this.onConfigurationChange, this)
+        );
+    }
+    
+    public dispose() {
+        this.disposables.forEach(d => d.dispose());
+        this.disposables = [];
+        if (this.panel) {
+            this.panel.dispose();
+            this.panel = undefined;
+        }
     }
     
     public showPreview(mode: 'horizontal' | 'vertical') {
@@ -49,20 +60,32 @@ export class PreviewProvider {
     }
     
     private onDocumentChange(event: vscode.TextDocumentChangeEvent) {
-        if (this.panel && this.isRelevantDocument(event.document)) {
-            this.updatePreview();
+        try {
+            if (this.panel && this.isRelevantDocument(event.document)) {
+                this.updatePreview();
+            }
+        } catch (error) {
+            console.error('Error in onDocumentChange:', error);
         }
     }
     
     private onActiveEditorChange() {
-        if (this.panel) {
-            this.updatePreview();
+        try {
+            if (this.panel) {
+                this.updatePreview();
+            }
+        } catch (error) {
+            console.error('Error in onActiveEditorChange:', error);
         }
     }
     
     private onConfigurationChange(event: vscode.ConfigurationChangeEvent) {
-        if (event.affectsConfiguration('novelPreview') && this.panel) {
-            this.updatePreview();
+        try {
+            if (event.affectsConfiguration('novelPreview') && this.panel) {
+                this.updatePreview();
+            }
+        } catch (error) {
+            console.error('Error in onConfigurationChange:', error);
         }
     }
     
@@ -71,32 +94,46 @@ export class PreviewProvider {
     }
     
     private updatePreview() {
-        if (!this.panel) return;
-        
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || !this.isRelevantDocument(editor.document)) {
-            this.panel.webview.html = this.getWebviewContent('プレビューするファイルを選択してください');
-            return;
+        try {
+            if (!this.panel) return;
+            
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !this.isRelevantDocument(editor.document)) {
+                this.panel.webview.html = this.getWebviewContent('プレビューするファイルを選択してください');
+                return;
+            }
+            
+            const text = editor.document.getText();
+            this.textParser.updateSettings();
+            const parsedHtml = this.textParser.parse(text, this.currentMode);
+            const settings = SettingsManager.getSettings();
+            
+            this.panel.webview.html = this.getWebviewContent(parsedHtml);
+            
+            setTimeout(() => {
+                if (this.panel) {
+                    this.panel.webview.postMessage({
+                        command: 'update',
+                        html: parsedHtml,
+                        mode: this.currentMode
+                    });
+                    this.panel.webview.postMessage({
+                        command: 'settings',
+                        settings: settings
+                    });
+                }
+            }, 100);
+        } catch (error) {
+            console.error('Error in updatePreview:', error);
         }
-        
-        const text = editor.document.getText();
-        const parsedHtml = this.textParser.parse(text, this.currentMode);
-        const settings = SettingsManager.getSettings();
-        
-        this.panel.webview.html = this.getWebviewContent(parsedHtml);
-        this.panel.webview.postMessage({
-            command: 'update',
-            html: parsedHtml,
-            mode: this.currentMode
-        });
-        this.panel.webview.postMessage({
-            command: 'settings',
-            settings: settings
-        });
     }
     
     private getWebviewContent(content: string): string {
-        const webviewUri = this.panel!.webview.asWebviewUri;
+        if (!this.panel) {
+            return '';
+        }
+        
+        const webviewUri = this.panel.webview.asWebviewUri;
         const stylesUri = webviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'src', 'webview', 'styles.css'));
         const scriptUri = webviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'src', 'webview', 'preview.js'));
         
