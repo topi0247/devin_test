@@ -14,10 +14,7 @@ export class TextParser {
     public parse(text: string, mode: 'horizontal' | 'vertical'): string {
         let processed = text;
         
-        if (mode === 'vertical') {
-            processed = this.hideMarkdownHeaders(processed);
-        }
-        
+        processed = this.hideMarkdownHeaders(processed);
         processed = this.parseRuby(processed);
         processed = this.parseColors(processed);
         processed = this.parseBackgroundColors(processed);
@@ -102,23 +99,38 @@ export class TextParser {
         
         while (i < text.length) {
             if (text[i] === '<') {
-                const tagEnd = text.indexOf('>', i);
-                if (tagEnd !== -1) {
-                    const tag = text.substring(i, tagEnd + 1);
-                    if (tag.startsWith('<ruby>')) {
-                        const rubyEnd = text.indexOf('</ruby>', tagEnd);
-                        if (rubyEnd !== -1) {
-                            characters.push(text.substring(i, rubyEnd + 7));
-                            i = rubyEnd + 7;
-                            continue;
+                if (text.substring(i).startsWith('<ruby>')) {
+                    const rubyEnd = text.indexOf('</ruby>', i);
+                    if (rubyEnd !== -1) {
+                        const rubyContent = text.substring(i, rubyEnd + 7);
+                        const rubyMatch = rubyContent.match(/<ruby>([^<]+)<rt>([^<]+)<\/rt><\/ruby>/);
+                        if (rubyMatch) {
+                            const baseText = rubyMatch[1];
+                            for (let j = 0; j < baseText.length; j++) {
+                                characters.push(`<ruby>${baseText[j]}<rt>${rubyMatch[2]}</rt></ruby>`);
+                            }
+                        } else {
+                            characters.push(rubyContent);
                         }
-                    } else if (tag.startsWith('<span')) {
-                        const spanEnd = text.indexOf('</span>', tagEnd);
-                        if (spanEnd !== -1) {
-                            characters.push(text.substring(i, spanEnd + 7));
-                            i = spanEnd + 7;
-                            continue;
+                        i = rubyEnd + 7;
+                        continue;
+                    }
+                } else if (text.substring(i).startsWith('<span')) {
+                    const spanEnd = text.indexOf('</span>', i);
+                    if (spanEnd !== -1) {
+                        const spanContent = text.substring(i, spanEnd + 7);
+                        const spanMatch = spanContent.match(/<span[^>]*>([^<]+)<\/span>/);
+                        if (spanMatch) {
+                            const spanText = spanMatch[1];
+                            const spanTag = spanContent.substring(0, spanContent.indexOf('>') + 1);
+                            for (let j = 0; j < spanText.length; j++) {
+                                characters.push(`${spanTag}${spanText[j]}</span>`);
+                            }
+                        } else {
+                            characters.push(spanContent);
                         }
+                        i = spanEnd + 7;
+                        continue;
                     }
                 }
             }
