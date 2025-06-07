@@ -226,8 +226,7 @@ class PreviewProvider {
                     
                     .grid-container {
                         display: flex;
-                        flex-direction: column;
-                        gap: 0;
+                        gap: var(--line-spacing);
                     }
                     
                     .horizontal-grid {
@@ -247,10 +246,12 @@ class PreviewProvider {
                     
                     .horizontal-grid .grid-line {
                         flex-direction: row;
+                        margin-bottom: var(--line-spacing);
                     }
                     
                     .vertical-grid .grid-line {
                         flex-direction: column;
+                        margin-right: var(--line-spacing);
                     }
                     
                     .grid-cell {
@@ -263,61 +264,15 @@ class PreviewProvider {
                         font-size: calc(var(--cell-size) * 0.7);
                         position: relative;
                         box-sizing: border-box;
+                        writing-mode: horizontal-tb;
+                        text-orientation: mixed;
                     }
                     
-                    .manuscript-paper.show-grid .grid-cell {
-                        border: 1px solid #ddd;
-                    }
-                    
-                    .empty-cell {
-                        color: transparent;
-                    }
-                    
-                    .empty-line {
-                        height: var(--cell-size);
-                    }
-                    
-                    .grid-container {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 0;
-                    }
-                    
-                    .horizontal-grid {
-                        flex-direction: column;
-                    }
-                    
-                    .vertical-grid {
-                        flex-direction: row;
+                    .vertical-grid .grid-cell {
                         writing-mode: vertical-rl;
                         text-orientation: upright;
                     }
                     
-                    .grid-line {
-                        display: flex;
-                        gap: 0;
-                    }
-                    
-                    .horizontal-grid .grid-line {
-                        flex-direction: row;
-                    }
-                    
-                    .vertical-grid .grid-line {
-                        flex-direction: column;
-                    }
-                    
-                    .grid-cell {
-                        width: var(--cell-size);
-                        height: var(--cell-size);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-family: var(--font-family);
-                        font-size: calc(var(--cell-size) * 0.7);
-                        position: relative;
-                        box-sizing: border-box;
-                    }
-                    
                     .manuscript-paper.show-grid .grid-cell {
                         border: 1px solid #ddd;
                     }
@@ -328,6 +283,15 @@ class PreviewProvider {
                     
                     .empty-line {
                         height: var(--cell-size);
+                    }
+                    
+                    ruby {
+                        ruby-align: center;
+                    }
+                    
+                    ruby rt {
+                        font-size: 0.5em;
+                        line-height: 1;
                     }
                     
                     ruby rt { font-size: 0.5em; }
