@@ -1,0 +1,99 @@
+{
+  "name": "novel-writing-preview",
+  "displayName": "Novel Writing Preview",
+  "description": "小説執筆用の横書き・縦書きプレビュー拡張機能",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": ["Other"],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onCommand:novelPreview.showHorizontalPreview",
+    "onCommand:novelPreview.showVerticalPreview",
+    "onCommand:novelPreview.togglePreviewMode"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "novelPreview.showHorizontalPreview",
+        "title": "横書きプレビューを開く",
+        "category": "Novel Preview"
+      },
+      {
+        "command": "novelPreview.showVerticalPreview",
+        "title": "縦書きプレビューを開く",
+        "category": "Novel Preview"
+      },
+      {
+        "command": "novelPreview.togglePreviewMode",
+        "title": "プレビューモード切り替え",
+        "category": "Novel Preview"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "novelPreview.showHorizontalPreview",
+          "when": "resourceExtname =~ /\\.(md|txt)$/",
+          "group": "navigation"
+        },
+        {
+          "command": "novelPreview.showVerticalPreview",
+          "when": "resourceExtname =~ /\\.(md|txt)$/",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Novel Writing Preview",
+      "properties": {
+        "novelPreview.gridSize": {
+          "type": "number",
+          "default": 20,
+          "description": "1行(列)のマス数"
+        },
+        "novelPreview.cellSize": {
+          "type": "number",
+          "default": 24,
+          "description": "マスのサイズ(px)"
+        },
+        "novelPreview.lineSpacing": {
+          "type": "number",
+          "default": 4,
+          "description": "行間・列間隔(px)"
+        },
+        "novelPreview.fontFamily": {
+          "type": "string",
+          "default": "游明朝, YuMincho, Hiragino Mincho ProN, serif",
+          "description": "フォント"
+        },
+        "novelPreview.showGrid": {
+          "type": "boolean",
+          "default": true,
+          "description": "マス目表示"
+        },
+        "novelPreview.colors": {
+          "type": "object",
+          "default": {
+            "red": "#ff0000",
+            "blue": "#0000ff",
+            "green": "#008000",
+            "yellow": "#ffff00"
+          },
+          "description": "カスタム色設定"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.60.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  }
+}

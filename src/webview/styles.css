@@ -1,0 +1,76 @@
+:root {
+    --grid-size: 20;
+    --cell-size: 24px;
+    --line-spacing: 4px;
+    --font-family: '游明朝, YuMincho, Hiragino Mincho ProN, serif';
+    --color-red: #ff0000;
+    --color-blue: #0000ff;
+    --color-green: #008000;
+    --color-yellow: #ffff00;
+}
+
+body {
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+#container {
+    max-width: 100%;
+    margin: 0 auto;
+    background-color: white;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.horizontal-mode {
+    writing-mode: horizontal-tb;
+    direction: ltr;
+}
+
+.horizontal-mode .manuscript-paper {
+    display: grid;
+    grid-template-columns: repeat(var(--grid-size), var(--cell-size));
+    gap: var(--line-spacing);
+    font-family: var(--font-family);
+    line-height: var(--cell-size);
+}
+
+.vertical-mode {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    direction: rtl;
+}
+
+.vertical-mode .manuscript-paper {
+    display: grid;
+    grid-template-rows: repeat(var(--grid-size), var(--cell-size));
+    gap: var(--line-spacing);
+    font-family: var(--font-family);
+    height: calc(var(--grid-size) * var(--cell-size) + (var(--grid-size) - 1) * var(--line-spacing));
+}
+
+.manuscript-paper.show-grid {
+    background-image: 
+        linear-gradient(to right, #ddd 1px, transparent 1px),
+        linear-gradient(to bottom, #ddd 1px, transparent 1px);
+    background-size: var(--cell-size) var(--cell-size);
+}
+
+ruby rt {
+    font-size: 0.5em;
+}
+
+.text-color-red { color: var(--color-red); }
+.text-color-blue { color: var(--color-blue); }
+.text-color-green { color: var(--color-green); }
+.text-color-yellow { color: var(--color-yellow); }
+
+.bg-color-red { background-color: var(--color-red); }
+.bg-color-blue { background-color: var(--color-blue); }
+.bg-color-green { background-color: var(--color-green); }
+.bg-color-yellow { background-color: var(--color-yellow); }
+
+.manuscript-paper {
+    font-size: calc(var(--cell-size) * 0.8);
+}
