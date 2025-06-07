@@ -201,51 +201,73 @@ export class PreviewProvider implements vscode.Disposable {
         try {
             if (!this.panel || !this.panel.webview) {
                 console.log('Panel or webview is undefined in getWebviewContent');
-                return '';
-            }
-            
-            const webviewUri = this.panel.webview.asWebviewUri;
-            if (!webviewUri) {
-                console.error('webviewUri is undefined');
-                return this.getFallbackContent(content);
-            }
-            
-            let stylesUri, scriptUri;
-            try {
-                stylesUri = webviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'src', 'webview', 'styles.css'));
-                scriptUri = webviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'src', 'webview', 'preview.js'));
-            } catch (uriError) {
-                console.error('Error creating webview URIs:', uriError);
                 return this.getFallbackContent(content);
             }
             
             const cspSource = this.panel.webview.cspSource;
-            if (!cspSource) {
-                console.error('CSP source is undefined');
-                return this.getFallbackContent(content);
-            }
             
             return `<!DOCTYPE html>
             <html>
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource};">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource || 'vscode-webview:'} 'unsafe-inline'; script-src ${cspSource || 'vscode-webview:'} 'unsafe-inline';">
                 <title>Novel Preview</title>
                 <style>
-                    body { font-family: '游明朝', YuMincho, 'Hiragino Mincho ProN', serif; padding: 20px; }
-                    .horizontal-mode { writing-mode: horizontal-tb; }
-                    .vertical-mode { writing-mode: vertical-rl; text-orientation: upright; }
-                    .manuscript-paper { line-height: 1.8; }
+                    :root {
+                        --grid-size: 20;
+                        --cell-size: 24px;
+                        --line-spacing: 4px;
+                        --font-family: '游明朝', YuMincho, 'Hiragino Mincho ProN', serif;
+                        --color-red: #ff0000;
+                        --color-blue: #0000ff;
+                        --color-green: #008000;
+                        --color-yellow: #ffff00;
+                    }
+                    
+                    body { 
+                        font-family: var(--font-family); 
+                        padding: 20px; 
+                        margin: 0;
+                        background-color: #ffffff;
+                    }
+                    
+                    .horizontal-mode { 
+                        writing-mode: horizontal-tb; 
+                        direction: ltr;
+                    }
+                    
+                    .vertical-mode { 
+                        writing-mode: vertical-rl; 
+                        text-orientation: upright; 
+                        direction: rtl;
+                    }
+                    
+                    .manuscript-paper { 
+                        line-height: 1.8; 
+                        padding: 10px;
+                        min-height: 400px;
+                    }
+                    
+                    .manuscript-paper.show-grid {
+                        background-image: 
+                            linear-gradient(to right, #ddd 1px, transparent 1px),
+                            linear-gradient(to bottom, #ddd 1px, transparent 1px);
+                        background-size: var(--cell-size) var(--cell-size);
+                        background-position: 0 0;
+                    }
+                    
                     ruby rt { font-size: 0.5em; }
-                    .text-color-red { color: #ff0000; }
-                    .text-color-blue { color: #0000ff; }
-                    .text-color-green { color: #008000; }
-                    .text-color-yellow { color: #ffff00; }
-                    .bg-color-red { background-color: #ff0000; }
-                    .bg-color-blue { background-color: #0000ff; }
-                    .bg-color-green { background-color: #008000; }
-                    .bg-color-yellow { background-color: #ffff00; }
+                    
+                    .text-color-red { color: var(--color-red); }
+                    .text-color-blue { color: var(--color-blue); }
+                    .text-color-green { color: var(--color-green); }
+                    .text-color-yellow { color: var(--color-yellow); }
+                    
+                    .bg-color-red { background-color: var(--color-red); }
+                    .bg-color-blue { background-color: var(--color-blue); }
+                    .bg-color-green { background-color: var(--color-green); }
+                    .bg-color-yellow { background-color: var(--color-yellow); }
                 </style>
             </head>
             <body>
@@ -256,16 +278,59 @@ export class PreviewProvider implements vscode.Disposable {
                 </div>
                 <script>
                     const vscode = acquireVsCodeApi();
-                    window.addEventListener('message', event => {
+                    
+                    function applySettings(settings) {
+                        const root = document.documentElement;
+                        
+                        if (settings.gridSize) {
+                            root.style.setProperty('--grid-size', settings.gridSize);
+                        }
+                        if (settings.cellSize) {
+                            root.style.setProperty('--cell-size', settings.cellSize + 'px');
+                        }
+                        if (settings.lineSpacing) {
+                            root.style.setProperty('--line-spacing', settings.lineSpacing + 'px');
+                        }
+                        if (settings.fontFamily) {
+                            root.style.setProperty('--font-family', settings.fontFamily);
+                        }
+                        
+                        const content = document.getElementById('preview-content');
+                        if (content) {
+                            if (settings.showGrid) {
+                                content.classList.add('show-grid');
+                            } else {
+                                content.classList.remove('show-grid');
+                            }
+                        }
+                        
+                        if (settings.colors) {
+                            Object.entries(settings.colors).forEach(function(entry) {
+                                const name = entry[0];
+                                const color = entry[1];
+                                root.style.setProperty('--color-' + name, color);
+                            });
+                        }
+                    }
+                    
+                    function updateContent(html, mode) {
+                        const container = document.getElementById('container');
+                        const content = document.getElementById('preview-content');
+                        
+                        if (container && content) {
+                            container.className = mode + '-mode';
+                            content.innerHTML = html || 'コンテンツがありません';
+                        }
+                    }
+                    
+                    window.addEventListener('message', function(event) {
                         const message = event.data;
                         switch (message.command) {
                             case 'update':
-                                const container = document.getElementById('container');
-                                const content = document.getElementById('preview-content');
-                                if (container && content) {
-                                    container.className = message.mode + '-mode';
-                                    content.innerHTML = message.html || 'コンテンツがありません';
-                                }
+                                updateContent(message.html, message.mode);
+                                break;
+                            case 'settings':
+                                applySettings(message.settings);
                                 break;
                         }
                     });
